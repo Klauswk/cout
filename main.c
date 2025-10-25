@@ -1,8 +1,8 @@
 #include <stdio.h>
-#include <ncurses.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include "hotui.c"
 
 #define BAR_SIZE 4 
 #define HEIGHT 10 
@@ -13,15 +13,6 @@
 #define BLOCK 'x'
 
 static char pixels[WIDTH * HEIGHT];
-
-void print_pixels(int bar_ypos, int bar_xpos) {
-  for (int i = 0; i < HEIGHT; i++) {
-     for (int j = 0; j < WIDTH; j++) {
-        printf("%c",pixels[i* WIDTH + j]);
-     }
-     printf("\n");
-  }
-}
 
 void init_board(int bar_ypos, int bar_xpos, int ball_ypos, int ball_xpos) {
   for (int i = 0; i < HEIGHT; i++) {
@@ -95,27 +86,19 @@ void update_pixels(int bar_ypos, int bar_xpos, int ball_ypos, int ball_xpos) {
   pixels[ball_ypos * WIDTH + ball_xpos] = BALL;
 }
 
-void draw_screen(WINDOW* main_win) {
+void draw_screen(Window window) {
+  hui_clear_window();
   for (int i = 0; i < HEIGHT; i++) {
     for (int j = 0; j < WIDTH; j++) {
-      mvwaddch(main_win, i, j, pixels[i* WIDTH + j]);
+      hui_put_character_at(pixels[i*WIDTH + j], i, j);           
     }
   }
-
 }
 
 int main() {
   
   srand(time(NULL));
-  initscr();
-	cbreak();
-	noecho();
-	keypad(stdscr, TRUE);
-  int row, col;
-  getmaxyx(stdscr, col, row);
-
-  WINDOW* main_win = newwin(col, row, 0, 0);
-  wtimeout(main_win, 1000);
+  Window main_win = hui_init();
 
   int quit = 0;
   int ch = 'a';
@@ -129,25 +112,39 @@ int main() {
   init_board(bar_ypos, bar_xpos, ball_ypos, ball_xpos);
   update_pixels(bar_ypos, bar_xpos, ball_ypos, ball_xpos);
   draw_screen(main_win);
+  char buffer[50];
+  memset(&buffer, 0, 50);
 
   while(!quit) {
+    int characters = 0;
+    memset(&buffer, 0, 50);
+
     update_pixels(bar_ypos, bar_xpos, ball_ypos, ball_xpos);
     draw_screen(main_win);
     if (calculate_ball_position(&ball_ypos, &ball_xpos, &ball_vy, &ball_vx)) {
       dead = 1;
-      mvwprintw(main_win, HEIGHT / 2, WIDTH / 2  - strlen("GAME OVER")/2, "%s", "GAME OVER");
-      wrefresh(main_win);
+      char* game_over_text = "Game Over";
+      size_t game_over_text_size = strlen(game_over_text);
+      hui_put_text_at(game_over_text, game_over_text_size, HEIGHT / 2, WIDTH / 2 - game_over_text_size/2);
       break;
     }
-    mvwprintw(main_win, 0, WIDTH + 2, "Points: %d", points);
-    mvwprintw(main_win, 1, WIDTH + 2, "Ball xpos: %d", ball_xpos);
-    mvwprintw(main_win, 2, WIDTH + 2, "Ball ypos: %d", ball_ypos);
-    mvwprintw(main_win, 3, WIDTH + 2, "Ball vypos: %d", ball_vy);
-    mvwprintw(main_win, 4, WIDTH + 2, "Ball vxpos: %d", ball_vx);
+    characters = sprintf(buffer, "Points: %d", points);
+    hui_put_text_at(buffer, characters, 0, WIDTH + 2);
 
-    ch = wgetch(main_win);  
+    characters = sprintf(buffer, "Ball xpos: %d", ball_xpos);
+    hui_put_text_at(buffer, characters, 1, WIDTH + 2);
+
+    characters = sprintf(buffer, "Ball ypos: %d", ball_ypos);
+    hui_put_text_at(buffer, characters, 2, WIDTH + 2);
+
+    characters = sprintf(buffer, "Ball vxpos: %d", ball_vx);
+    hui_put_text_at(buffer, characters, 3, WIDTH + 2);
+
+    characters = sprintf(buffer, "Ball vypos: %d", ball_vy);
+    hui_put_text_at(buffer, characters, 4, WIDTH + 2);
+
+    read(1, &ch, 1);
     if (ch == 'q') {
-      endwin();
       return 1;
       break;
     } else if (ch == 'l') {
@@ -158,17 +155,12 @@ int main() {
 
     ball_xpos+=(ball_vx);
     ball_ypos+=(ball_vy);
-    wclear(main_win);
   }
 
   while (!quit) {
-    ch = wgetch(main_win);  
+    read(1, &ch, 1);
     if (ch == 'q') {
-      endwin();
       return 1;
-      break;
     } 
   }
-
-  endwin();
 }
