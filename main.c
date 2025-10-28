@@ -121,7 +121,7 @@ int main() {
   FD_ZERO(&readfs);
   FD_SET(1, &readfs);
 
-  Window side_window = hui_create_window(100, 100, WIDTH + 2, 0);
+  Window side_window = hui_create_window(100, 100, 0, WIDTH + 2);
 
 
   while(!quit) {
