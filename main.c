@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <sys/select.h>
+#include <unistd.h>
 #include "hotui.c"
 
 #define BAR_SIZE 4 
@@ -115,6 +117,13 @@ int main() {
   char buffer[50];
   memset(&buffer, 0, 50);
 
+  fd_set readfs;
+  FD_ZERO(&readfs);
+  FD_SET(1, &readfs);
+
+  Window side_window = hui_create_window(100, 100, WIDTH + 2, 0);
+
+
   while(!quit) {
     int characters = 0;
     memset(&buffer, 0, 50);
@@ -129,28 +138,44 @@ int main() {
       break;
     }
     characters = sprintf(buffer, "Points: %d", points);
-    hui_put_text_at(buffer, characters, 0, WIDTH + 2);
+    hui_put_text_at_window(side_window, buffer, characters, 0, 0);
 
     characters = sprintf(buffer, "Ball xpos: %d", ball_xpos);
-    hui_put_text_at(buffer, characters, 1, WIDTH + 2);
+    hui_put_text_at_window(side_window, buffer, characters, 1, 0);
 
     characters = sprintf(buffer, "Ball ypos: %d", ball_ypos);
-    hui_put_text_at(buffer, characters, 2, WIDTH + 2);
+    hui_put_text_at_window(side_window, buffer, characters, 2, 0);
 
     characters = sprintf(buffer, "Ball vxpos: %d", ball_vx);
-    hui_put_text_at(buffer, characters, 3, WIDTH + 2);
+    hui_put_text_at_window(side_window, buffer, characters, 3, 0);
 
     characters = sprintf(buffer, "Ball vypos: %d", ball_vy);
-    hui_put_text_at(buffer, characters, 4, WIDTH + 2);
+    hui_put_text_at_window(side_window, buffer, characters, 4, 0);
 
-    read(1, &ch, 1);
-    if (ch == 'q') {
-      return 1;
-      break;
-    } else if (ch == 'l') {
-      if (!(bar_xpos + BAR_SIZE + 2 > WIDTH)) bar_xpos+=2;
-    } else if (ch == 'h') {
-      if (bar_xpos > 1) bar_xpos-=2;
+    struct timeval tv;
+    tv.tv_sec = 1; // Wait for 5 seconds
+    tv.tv_usec = 0;
+
+    int retval = select(1 + 1, &readfs, NULL, NULL, &tv);
+    
+    if (retval == -1) {
+      characters = sprintf(buffer, "Erro reading select");
+      hui_put_text_at(buffer, characters, 5, WIDTH + 2);
+    } else if (retval) {
+        read(1, &ch, 1);
+        characters = sprintf(buffer, "character available");
+        hui_put_text_at(buffer, characters, 5, WIDTH + 2);
+        if (ch == 'q') {
+          return 1;
+          break;
+        } else if (ch == 'l') {
+          if (!(bar_xpos + BAR_SIZE + 2 > WIDTH)) bar_xpos+=2;
+        } else if (ch == 'h') {
+          if (bar_xpos > 1) bar_xpos-=2;
+        }
+    } else {
+      characters = sprintf(buffer, "No character available");
+      hui_put_text_at(buffer, characters, 5, WIDTH + 2);
     }
 
     ball_xpos+=(ball_vx);
